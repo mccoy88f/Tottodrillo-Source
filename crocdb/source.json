@@ -8,6 +8,6 @@
   "minAppVersion": "1.1.0",
   "apiPackage": "com.tottodrillo.sources.crocdb",
   "type": "api",
-  "defaultImage": "https://crocdb.net/static/img/croc_logo.png"
+  "defaultImage": "croc_logo.png"
 }
 
