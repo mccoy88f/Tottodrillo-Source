@@ -1,7 +1,7 @@
 {
   "id": "switchroms",
   "name": "SwitchRoms",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "type": "python",
   "description": "Sorgente per scaricare ROM Nintendo Switch da SwitchRoms.io",
   "author": "Tottodrillo Team",

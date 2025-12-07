@@ -2,7 +2,7 @@
   "sources": [
     {
       "id": "crocdb",
-      "version": "1.2.0",
+      "version": "2.0.0",
       "downloadUrl": "https://github.com/mccoy88f/Tottodrillo-Source/raw/main/crocdb-source.zip",
       "changelog": "Sorgente ufficiale CrocDB - Database pubblico di ROM per retro gaming",
       "minAppVersion": "1.1.0",
@@ -10,7 +10,7 @@
     },
     {
       "id": "switchroms",
-      "version": "1.1.0",
+      "version": "2.0.0",
       "downloadUrl": "https://github.com/mccoy88f/Tottodrillo-Source/raw/main/switchroms-source.zip",
       "changelog": "Sorgente per scaricare ROM Nintendo Switch da SwitchRoms.io",
       "minAppVersion": "1.1.0",
@@ -18,7 +18,7 @@
     },
     {
       "id": "vimms",
-      "version": "1.2.0",
+      "version": "2.0.0",
       "downloadUrl": "https://github.com/mccoy88f/Tottodrillo-Source/raw/main/vimms-source.zip",
       "changelog": "Sorgente per scaricare ROM da Vimm's Lair - Database pubblico di ROM per retro gaming",
       "minAppVersion": "1.1.0",
