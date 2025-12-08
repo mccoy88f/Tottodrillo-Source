@@ -253,40 +253,61 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
                     if img_url:
                         screen_images.append(img_url)
         
-        # Trova il pulsante Download
-        # Prova diversi selettori per trovare il pulsante
+        # Trova il pulsante "Download for Free" e leggi l'URL dalla pagina
+        # NON calcolare l'URL, deve essere letto dal pulsante
         download_button = None
         download_page_url = None
         
-        # Metodo 1: cerca link con href che contiene "/download/" e class contiene "green"
-        download_button = soup.find('a', href=re.compile(r'/download/'), class_=lambda x: x and 'green' in str(x))
+        # Metodo 1: cerca dentro div.btn-block (metodo più affidabile)
+        btn_block = soup.find('div', class_='btn-block')
+        if btn_block:
+            # Cerca il link dentro btn-block che ha href che inizia con /download/
+            download_button = btn_block.find('a', href=re.compile(r'/download/'))
+            if download_button:
+                print(f"✅ [get_entry] Pulsante trovato in btn-block", file=sys.stderr)
         
-        # Metodo 2: cerca dentro div.btn-block
+        # Metodo 2: cerca link con class che contiene "green" e href contiene "/download/"
         if not download_button:
-            btn_block = soup.find('div', class_='btn-block')
-            if btn_block:
-                download_button = btn_block.find('a', href=re.compile(r'/download/'))
+            download_button = soup.find('a', class_=lambda x: x and 'green' in str(x), href=re.compile(r'/download/'))
+            if download_button:
+                print(f"✅ [get_entry] Pulsante trovato per class green", file=sys.stderr)
         
-        # Metodo 3: cerca link con testo "Download" e href contiene "/download/"
+        # Metodo 3: cerca link con testo "Download for Free" o simile
         if not download_button:
             all_links = soup.find_all('a', href=re.compile(r'/download/'))
             for link in all_links:
                 link_text = link.get_text(strip=True).lower()
-                if 'download' in link_text:
+                if 'download' in link_text and ('free' in link_text or 'for' in link_text):
                     download_button = link
+                    print(f"✅ [get_entry] Pulsante trovato per testo: {link_text[:50]}", file=sys.stderr)
                     break
         
+        # Metodo 4: ultimo fallback - primo link con /download/ che ha class btn
+        if not download_button:
+            all_links = soup.find_all('a', href=re.compile(r'/download/'))
+            for link in all_links:
+                classes = link.get('class', [])
+                if any('btn' in str(c).lower() for c in classes):
+                    download_button = link
+                    print(f"✅ [get_entry] Pulsante trovato per class btn", file=sys.stderr)
+                    break
+        
+        # Leggi l'URL dal pulsante trovato
         if download_button:
             download_page_url = download_button.get('href', '')
-            if download_page_url and not download_page_url.startswith('http'):
-                download_page_url = f"https://nswpedia.com{download_page_url}"
-            print(f"✅ [get_entry] Pulsante Download trovato: {download_page_url}", file=sys.stderr)
+            if download_page_url:
+                # Assicurati che l'URL sia completo
+                if not download_page_url.startswith('http'):
+                    download_page_url = f"https://nswpedia.com{download_page_url}"
+                print(f"✅ [get_entry] URL pagina download letto dal pulsante: {download_page_url}", file=sys.stderr)
+            else:
+                print(f"⚠️ [get_entry] Pulsante trovato ma href vuoto", file=sys.stderr)
         else:
             # Debug: cerca tutti i link con /download/ per capire cosa c'è nella pagina
             all_download_links = soup.find_all('a', href=re.compile(r'/download/'))
-            print(f"⚠️ [get_entry] Pulsante Download non trovato. Trovati {len(all_download_links)} link con '/download/' nella pagina", file=sys.stderr)
+            print(f"⚠️ [get_entry] Pulsante 'Download for Free' non trovato. Trovati {len(all_download_links)} link con '/download/' nella pagina", file=sys.stderr)
             if all_download_links:
-                for i, link in enumerate(all_download_links[:3]):  # Primi 3 per debug
+                for i, link in enumerate(all_download_links[:5]):  # Primi 5 per debug
                     href = link.get('href', '')
                     classes = link.get('class', [])
                     text = link.get_text(strip=True)
