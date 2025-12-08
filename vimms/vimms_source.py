@@ -657,7 +657,6 @@ def get_rom_entry_by_uri(uri: str, source_dir: str, include_download_links: bool
                             print(f"⚠️ [get_rom_entry_by_uri] Screen ha dimensioni tipiche di errore ({width}x{height}): {screen_url}", file=sys.stderr)
                         else:
                             valid_screen_url = screen_url
-                            print(f"✅ [get_rom_entry_by_uri] Screen valido trovato: {screen_url} (size: {width}x{height})", file=sys.stderr)
                     except ImportError:
                         # PIL non disponibile, usa controllo dimensione file come fallback
                         size = len(response.content)
@@ -667,7 +666,6 @@ def get_rom_entry_by_uri(uri: str, source_dir: str, include_download_links: bool
                             print(f"⚠️ [get_rom_entry_by_uri] Screen ha dimensione sospetta ({size} bytes), potrebbe essere placeholder di errore: {screen_url}", file=sys.stderr)
                         elif size > 20000:
                             valid_screen_url = screen_url
-                            print(f"✅ [get_rom_entry_by_uri] Screen valido trovato: {screen_url} (size: {size} bytes)", file=sys.stderr)
                         else:
                             print(f"⚠️ [get_rom_entry_by_uri] Screen troppo piccolo ({size} bytes): {screen_url}", file=sys.stderr)
                     except Exception as img_error:
@@ -675,7 +673,6 @@ def get_rom_entry_by_uri(uri: str, source_dir: str, include_download_links: bool
                         size = len(response.content)
                         if size > 20000:
                             valid_screen_url = screen_url
-                            print(f"✅ [get_rom_entry_by_uri] Screen trovato (size: {size} bytes, errore analisi immagine): {screen_url}", file=sys.stderr)
                         else:
                             print(f"⚠️ [get_rom_entry_by_uri] Screen sospetto (size: {size} bytes, errore analisi): {screen_url}", file=sys.stderr)
                 else:

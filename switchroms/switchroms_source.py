@@ -143,10 +143,8 @@ def search_roms(params: Dict[str, Any], source_dir: str) -> str:
                     "links": []  # Verranno recuperati in get_entry
                 })
             except Exception as e:
-                print(f"⚠️ [search_roms] Errore parsing ROM: {e}", file=sys.stderr)
                 continue
         
-        print(f"✅ [search_roms] Trovate {len(roms)} ROM", file=sys.stderr)
         
         # Estrai informazioni sulla paginazione
         total_pages = 1
@@ -176,12 +174,11 @@ def search_roms(params: Dict[str, Any], source_dir: str) -> str:
                 
                 if page_numbers:
                     total_pages = max(page_numbers)
-                    print(f"📄 [search_roms] Paginazione: pagina {page} di {total_pages}", file=sys.stderr)
                 else:
                     # Se non ci sono link di pagina, probabilmente c'è solo una pagina
                     total_pages = 1
         except Exception as e:
-            print(f"⚠️ [search_roms] Errore estrazione paginazione: {e}", file=sys.stderr)
+            pass
         
         return json.dumps({
             "roms": roms,
@@ -213,13 +210,11 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
         else:
             page_url = f"https://switchroms.io/{slug}/"
         
-        print(f"🔗 [get_entry] Recupero dettagli: {page_url}", file=sys.stderr)
         
         # Verifica che lo slug sia valido per SwitchRoms (non dovrebbe contenere riferimenti ad altre piattaforme)
         # SwitchRoms ha solo ROM per Nintendo Switch, quindi se lo slug contiene riferimenti ad altre piattaforme,
         # probabilmente è un errore e dovremmo restituire None
         if not slug.startswith("http") and ("n3ds" in slug.lower() or "wii" in slug.lower() or "ds" in slug.lower() or "nes" in slug.lower()):
-            print(f"⚠️ [get_entry] Slug non valido per SwitchRoms (contiene riferimenti ad altre piattaforme): {slug}", file=sys.stderr)
             return json.dumps({"entry": None})
         
         # Fai la richiesta alla pagina ROM
@@ -230,13 +225,11 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
             
             # Se la pagina non esiste (404), probabilmente lo slug non è valido per SwitchRoms
             if response.status_code == 404:
-                print(f"⚠️ [get_entry] Pagina non trovata (404) per: {page_url}", file=sys.stderr)
                 return json.dumps({"entry": None})
             
             response.raise_for_status()
         except requests.exceptions.HTTPError as e:
             if e.response is not None and e.response.status_code == 404:
-                print(f"⚠️ [get_entry] Pagina non trovata (404) per: {page_url}", file=sys.stderr)
                 return json.dumps({"entry": None})
             raise
         
@@ -287,7 +280,6 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
                         matches = sum(1 for word in title_words[:3] if word in alt_text)
                         if matches >= 2:
                             box_image = img.get('src', '')
-                            print(f"✅ [get_entry] Immagine trovata per matching alt text: {box_image[:80]}...", file=sys.stderr)
                             break
         
         # Fallback: cerca l'immagine principale nell'articolo (prima immagine che non è bg-img)
@@ -299,7 +291,6 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
                     if 'bg-img' not in (img.get('class', []) or []):
                         box_image = img.get('src', '')
                         if box_image:
-                            print(f"✅ [get_entry] Immagine trovata nell'articolo: {box_image[:80]}...", file=sys.stderr)
                             break
         
         # Ultimo fallback: prima immagine valida
@@ -320,7 +311,6 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
         
         # Estrai download links solo se richiesto (per performance in home screen e ricerca)
         if download_url and include_download_links:
-            print(f"✅ [get_entry] Pulsante Download trovato: {download_url}", file=sys.stderr)
             
             # Visita la pagina di download
             download_response = session.get(download_url, headers=get_browser_headers(referer=page_url), timeout=15)
@@ -388,12 +378,9 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
                             if click_here_link:
                                 final_url = click_here_link.get('href', '')
                                 if final_url and final_url.startswith('http'):
-                                    print(f"✅ [get_entry] URL finale estratto: {final_url[:100]}...", file=sys.stderr)
                                 else:
-                                    print(f"⚠️ [get_entry] URL estratto non valido: {final_url}", file=sys.stderr)
                                     final_url = None
                             else:
-                                print(f"⚠️ [get_entry] Link 'click here' non trovato nella pagina", file=sys.stderr)
                                 # Debug: stampa alcuni link trovati nella pagina
                                 all_links = link_soup.find_all('a', href=re.compile(r'https?://'))
                                 print(f"🔍 [get_entry] Trovati {len(all_links)} link esterni nella pagina", file=sys.stderr)
@@ -412,7 +399,6 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
                         # Il WebView intercetterà il download quando parte
                         download_url_to_use = final_url if final_url else link_url
                         if not final_url:
-                            print(f"⚠️ [get_entry] Usando URL intermedio come fallback: {link_url}", file=sys.stderr)
                         
                         download_links.append({
                             "name": link_name,
@@ -427,7 +413,6 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
                         print(f"⚠️ [get_entry] Errore parsing link download: {e}", file=sys.stderr)
                         continue
                 
-                print(f"✅ [get_entry] Trovati {len(download_links)} link download", file=sys.stderr)
         
         # Estrai regioni dalla tabella Language
         regions = []
@@ -487,7 +472,6 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
                     
                     # Converti in lista e ordina
                     regions = sorted(list(region_codes))
-                    print(f"✅ [get_entry] Regioni estratte: {', '.join(regions)}", file=sys.stderr)
         except Exception as e:
             print(f"⚠️ [get_entry] Errore estrazione regioni: {e}", file=sys.stderr)
         

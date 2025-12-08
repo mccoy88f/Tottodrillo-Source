@@ -117,10 +117,7 @@ def search_roms(params: Dict[str, Any], source_dir: str) -> str:
                     "links": []  # Verranno recuperati in get_entry
                 })
             except Exception as e:
-                print(f"⚠️ [search_roms] Errore parsing ROM: {e}", file=sys.stderr)
                 continue
-        
-        print(f"✅ [search_roms] Trovate {len(roms)} ROM", file=sys.stderr)
         
         # Estrai informazioni sulla paginazione
         total_pages = 1
@@ -139,9 +136,8 @@ def search_roms(params: Dict[str, Any], source_dir: str) -> str:
                 
                 if page_numbers:
                     total_pages = max(page_numbers)
-                    print(f"📄 [search_roms] Paginazione: pagina {page} di {total_pages}", file=sys.stderr)
         except Exception as e:
-            print(f"⚠️ [search_roms] Errore estrazione paginazione: {e}", file=sys.stderr)
+            pass
         
         return json.dumps({
             "roms": roms,
@@ -178,7 +174,6 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
                 # Prova prima senza categoria
                 page_url = f"https://nswpedia.com/nintendo-switch-roms/{slug}"
         
-        print(f"🔗 [get_entry] Recupero dettagli: {page_url}", file=sys.stderr)
         
         # Fai la richiesta alla pagina ROM
         session = requests.Session()
@@ -194,7 +189,6 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
                 response = session.get(fallback_url, headers=headers, timeout=15)
                 if response.status_code == 200:
                     page_url = fallback_url
-                    print(f"✅ [get_entry] URL alternativo funziona: {page_url}", file=sys.stderr)
             
             if response.status_code == 404:
                 print(f"⚠️ [get_entry] Pagina non trovata (404) per: {page_url}", file=sys.stderr)
@@ -223,7 +217,6 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
                 label_text = label_span.get_text(strip=True).lower()
                 if 'app name' in label_text:
                     title = value_span.get_text(strip=True)
-                    print(f"✅ [get_entry] Titolo estratto da 'App name': {title}", file=sys.stderr)
                     break
         
         # Fallback: cerca h1 o title se non trovato in "App name"
@@ -231,7 +224,6 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
             h1 = soup.find('h1')
             if h1:
                 title = h1.get_text(strip=True)
-                print(f"✅ [get_entry] Titolo estratto da h1: {title}", file=sys.stderr)
         
         if not title:
             title_tag = soup.find('title')
@@ -239,7 +231,6 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
                 title = title_tag.get_text(strip=True)
                 # Rimuovi suffissi comuni
                 title = re.sub(r'\s*-\s*NSWpedia.*$', '', title, flags=re.IGNORECASE)
-                print(f"✅ [get_entry] Titolo estratto da title tag: {title}", file=sys.stderr)
         
         if title:
             title = title.strip()
@@ -283,33 +274,6 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
             # Cerca il link dentro btn-block che ha href che inizia con /download/
             download_button = btn_block.find('a', href=re.compile(r'/download/'))
             if download_button:
-                print(f"✅ [get_entry] Pulsante trovato in btn-block", file=sys.stderr)
-        
-        # Metodo 2: cerca link con class che contiene "green" e href contiene "/download/"
-        if not download_button:
-            download_button = soup.find('a', class_=lambda x: x and 'green' in str(x), href=re.compile(r'/download/'))
-            if download_button:
-                print(f"✅ [get_entry] Pulsante trovato per class green", file=sys.stderr)
-        
-        # Metodo 3: cerca link con testo "Download for Free" o simile
-        if not download_button:
-            all_links = soup.find_all('a', href=re.compile(r'/download/'))
-            for link in all_links:
-                link_text = link.get_text(strip=True).lower()
-                if 'download' in link_text and ('free' in link_text or 'for' in link_text):
-                    download_button = link
-                    print(f"✅ [get_entry] Pulsante trovato per testo: {link_text[:50]}", file=sys.stderr)
-                    break
-        
-        # Metodo 4: ultimo fallback - primo link con /download/ che ha class btn
-        if not download_button:
-            all_links = soup.find_all('a', href=re.compile(r'/download/'))
-            for link in all_links:
-                classes = link.get('class', [])
-                if any('btn' in str(c).lower() for c in classes):
-                    download_button = link
-                    print(f"✅ [get_entry] Pulsante trovato per class btn", file=sys.stderr)
-                    break
         
         # Leggi l'URL dal pulsante trovato
         if download_button:
@@ -318,36 +282,25 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
                 # Assicurati che l'URL sia completo
                 if not download_page_url.startswith('http'):
                     download_page_url = f"https://nswpedia.com{download_page_url}"
-                print(f"✅ [get_entry] URL pagina download letto dal pulsante: {download_page_url}", file=sys.stderr)
             else:
-                print(f"⚠️ [get_entry] Pulsante trovato ma href vuoto", file=sys.stderr)
+                pass
         else:
-            # Debug: cerca tutti i link con /download/ per capire cosa c'è nella pagina
-            all_download_links = soup.find_all('a', href=re.compile(r'/download/'))
-            print(f"⚠️ [get_entry] Pulsante 'Download for Free' non trovato. Trovati {len(all_download_links)} link con '/download/' nella pagina", file=sys.stderr)
-            if all_download_links:
-                for i, link in enumerate(all_download_links[:5]):  # Primi 5 per debug
-                    href = link.get('href', '')
-                    classes = link.get('class', [])
-                    text = link.get_text(strip=True)
-                    print(f"  Link {i+1}: href={href[:80]}, class={classes}, text='{text[:50]}'", file=sys.stderr)
+            pass
         
         download_links = []
         
         # Estrai download links solo se richiesto
         if not include_download_links:
-            print(f"ℹ️ [get_entry] include_download_links=False, salto estrazione link", file=sys.stderr)
+            pass
         elif not download_page_url:
-            print(f"⚠️ [get_entry] download_page_url è None, non posso estrarre link", file=sys.stderr)
+            pass
         else:
-            print(f"🔗 [get_entry] Estrazione link download da: {download_page_url}", file=sys.stderr)
             
             # Visita la pagina di download
             try:
                 download_response = session.get(download_page_url, headers=get_browser_headers(referer=page_url), timeout=15)
                 download_response.raise_for_status()
                 download_soup = BeautifulSoup(download_response.content, 'html.parser')
-                print(f"✅ [get_entry] Pagina download caricata, dimensione: {len(download_response.content)} bytes", file=sys.stderr)
             except Exception as e:
                 print(f"❌ [get_entry] Errore caricamento pagina download: {e}", file=sys.stderr)
                 import traceback
@@ -357,14 +310,12 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
             if download_soup:
                 # Trova tutte le tabelle di download
                 download_tables = download_soup.find_all('div', class_='table-download')
-                print(f"📊 [get_entry] Trovate {len(download_tables)} tabelle di download", file=sys.stderr)
             
                 for table_div in download_tables:
                     try:
                         # Leggi il titolo della tabella per capire se è "Direct" o altro
                         h3 = table_div.find('h3')
                         table_title = h3.get_text(strip=True) if h3 else ""
-                        print(f"📋 [get_entry] Processando tabella: {table_title}", file=sys.stderr)
                         
                         # Determina se richiede webview e estrai nome del sito
                         is_direct = "Direct" in table_title
@@ -383,28 +334,23 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
                         # Trova la tabella
                         table = table_div.find('table')
                         if not table:
-                            print(f"⚠️ [get_entry] Tabella non trovata in div.table-download", file=sys.stderr)
                             continue
                         
                         tbody = table.find('tbody')
                         if not tbody:
-                            print(f"⚠️ [get_entry] tbody non trovato nella tabella", file=sys.stderr)
                             continue
                         
                         rows = tbody.find_all('tr')
-                        print(f"📝 [get_entry] Trovate {len(rows)} righe nella tabella '{table_title}'", file=sys.stderr)
                         for row in rows:
                             try:
                                 cells = row.find_all('td')
                                 if len(cells) < 3:
-                                    print(f"⚠️ [get_entry] Riga con meno di 3 celle, salto", file=sys.stderr)
                                     continue
                                 
                                 # Prima cella: link con nome file
                                 link_cell = cells[0]
                                 link_elem = link_cell.find('a')
                                 if not link_elem:
-                                    print(f"⚠️ [get_entry] Link non trovato nella prima cella", file=sys.stderr)
                                     continue
                                 
                                 link_url = link_elem.get('href', '')
@@ -431,20 +377,12 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
                                 # Terza cella: type
                                 format_type = cells[2].get_text(strip=True).upper()
                                 
-                                print(f"📥 [get_entry] Link trovato: {file_name} ({format_type}, {size_str}, direct={is_direct})", file=sys.stderr)
-                                
                                 # Per i link diretti, NON estrarre l'URL finale
                                 # Cloudflare richiede una challenge JavaScript che richiede ~20 secondi
                                 # Il WebView deve aprire la pagina intermedia per completare la challenge e ottenere il cookie cf_clearance
                                 # Poi il WebView può intercettare il download quando parte
                                 final_url = link_url
                                 intermediate_url = link_url if is_direct else None  # URL della pagina intermedia per WebView
-                                
-                                if is_direct:
-                                    print(f"ℹ️ [get_entry] Link diretto: uso pagina intermedia per WebView (Cloudflare challenge)", file=sys.stderr)
-                                    print(f"   URL pagina intermedia: {link_url}", file=sys.stderr)
-                                    # Per i link diretti, usiamo l'URL della pagina intermedia
-                                    # Il WebView completerà la challenge Cloudflare e intercetterà il download
                                 
                                 # Costruisci il nome del link: mostra "Diretto" o il nome del sito alla fine tra parentesi
                                 link_name = file_name
