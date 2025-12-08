@@ -10,7 +10,7 @@
     },
     {
       "id": "switchroms",
-      "version": "2.0.0",
+      "version": "2.0.1",
       "downloadUrl": "https://github.com/mccoy88f/Tottodrillo-Source/raw/main/switchroms-source.zip",
       "changelog": "Sorgente per scaricare ROM Nintendo Switch da SwitchRoms.io",
       "minAppVersion": "1.1.0",
@@ -21,6 +21,14 @@
       "version": "2.0.0",
       "downloadUrl": "https://github.com/mccoy88f/Tottodrillo-Source/raw/main/vimms-source.zip",
       "changelog": "Sorgente per scaricare ROM da Vimm's Lair - Database pubblico di ROM per retro gaming",
+      "minAppVersion": "1.1.0",
+      "releaseDate": null
+    },
+    {
+      "id": "nswpedia",
+      "version": "1.0.1",
+      "downloadUrl": "https://github.com/mccoy88f/Tottodrillo-Source/raw/main/nswpedia-source.zip",
+      "changelog": "Sorgente per scaricare ROM Nintendo Switch da NSWpedia.com",
       "minAppVersion": "1.1.0",
       "releaseDate": null
     }

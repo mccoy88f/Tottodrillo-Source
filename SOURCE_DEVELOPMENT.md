@@ -78,6 +78,8 @@ File di metadata che descrive la sorgente.
 - `author`: Nome dell'autore
 - `minAppVersion`: Versione minima app richiesta (es. "1.1.0")
 - `baseUrl`: URL base (solo per sorgenti API, opzionale per altri tipi)
+- `defaultImage`: Percorso relativo dell'immagine placeholder (es. "placeholder.png" o "nswpedia/placeholder.png")
+- `downloadInterceptPatterns`: Lista di pattern per intercettare download nel WebView (es. `["download.nswpediax.site", "?token=", ".nsp", ".xci"]`)
 
 ### Esempi
 
@@ -373,9 +375,12 @@ Le ROM devono essere mappate al formato standard di Tottodrillo:
     {
       "name": "Download Name",
       "type": "direct|torrent",
-      "format": "zip|7z|bin",
+      "format": "zip|7z|bin|nsp|xci",
       "url": "https://...",
-      "size_str": "100 MB"
+      "size_str": "100 MB",
+      "requires_webview": false,  // true se richiede WebView per gestire JavaScript/challenge (es. Cloudflare)
+      "intermediate_url": null,    // URL pagina intermedia da visitare per ottenere cookie (opzionale)
+      "delay_seconds": null        // Secondi di attesa prima del download (opzionale, gestito dall'app)
     }
   ]
 }
@@ -991,6 +996,49 @@ zip -r python-source.zip source.json main.py requirements.txt
 - Performance potenzialmente più lente
 - Alcune librerie potrebbero non essere compatibili
 
+## Gestione Download con WebView
+
+Per siti che richiedono JavaScript o protezioni anti-bot (es. Cloudflare), puoi configurare il WebView per gestire i download:
+
+### Parametri DownloadLink
+
+- `requires_webview`: Se `true`, l'app aprirà un WebView per gestire il download (necessario per siti con Cloudflare o JavaScript)
+- `intermediate_url`: URL della pagina intermedia da visitare per ottenere i cookie di sessione (opzionale)
+- `delay_seconds`: Secondi di attesa prima di avviare il download (opzionale, gestito dall'app)
+
+### Pattern di Intercettazione
+
+Nel `source.json`, puoi definire `downloadInterceptPatterns` per specificare quali URL il WebView deve intercettare come download diretti:
+
+```json
+{
+  "downloadInterceptPatterns": [
+    "download.nswpediax.site",
+    "sto.romsfast.com",
+    "?token=",
+    ".nsp",
+    ".xci",
+    ".zip",
+    ".7z"
+  ]
+}
+```
+
+I pattern vengono usati per riconoscere quando un URL è un download diretto che deve essere intercettato dal WebView.
+
+### Esempio DownloadLink con WebView
+
+```json
+{
+  "name": "Paper Mario (Diretto)",
+  "type": "direct",
+  "format": "nsp",
+  "url": "https://download.nswpediax.site/Paper%20Mario.nsp",
+  "requires_webview": true,
+  "intermediate_url": "https://nswpedia.com/download/paper-mario-89-9012/2/download_list"
+}
+```
+
 ## Checklist per Creare una Sorgente
 
 - [ ] Decidi il tipo di sorgente (API, Java, Python)
@@ -998,6 +1046,8 @@ zip -r python-source.zip source.json main.py requirements.txt
 - [ ] Per sorgenti API: crea `api_config.json`
 - [ ] Per sorgenti Java: compila il codice in JAR e includi dipendenze
 - [ ] Per sorgenti Python: crea lo script Python e `requirements.txt` (se necessario)
+- [ ] Se necessario, configura `downloadInterceptPatterns` nel `source.json`
+- [ ] Per download che richiedono WebView, imposta `requires_webview: true` nei link
 - [ ] Testa la sorgente localmente
 - [ ] Valida il pacchetto ZIP con `SourceInstaller.validateZip()`
 - [ ] Crea un README.md con istruzioni

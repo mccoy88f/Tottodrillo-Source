@@ -17,6 +17,7 @@ This repository contains the source definitions for the [Tottodrillo Android app
 - **CrocDB**: Official CrocDB source - Public ROM database for retro gaming
 - **SwitchRoms**: Source for downloading Nintendo Switch ROMs from SwitchRoms.io
 - **Vimm's Lair**: Source for downloading ROMs from Vimm's Lair - Public database of ROMs for retro gaming
+- **NSWpedia**: Source for downloading Nintendo Switch ROMs from NSWpedia.com
 
 ## Installation
 
