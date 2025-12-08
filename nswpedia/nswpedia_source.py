@@ -434,24 +434,15 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
                                 print(f"📥 [get_entry] Link trovato: {file_name} ({format_type}, {size_str}, direct={is_direct})", file=sys.stderr)
                                 
                                 # Per i link diretti, estrai l'URL finale dalla pagina intermedia
-                                # IMPORTANTE: attendere 20 secondi dopo il caricamento per validare il download
+                                # NOTA: L'URL può essere estratto subito, ma il download deve essere avviato
+                                # almeno 20 secondi dopo il caricamento della pagina per evitare errori 403
                                 final_url = link_url
                                 if is_direct:
                                     try:
                                         print(f"🔍 [get_entry] Estrazione URL finale da link diretto: {link_url}", file=sys.stderr)
-                                        # Prima richiesta: carica la pagina
                                         link_response = session.get(link_url, headers=get_browser_headers(referer=download_page_url), timeout=15, allow_redirects=True)
                                         link_response.raise_for_status()
-                                        
-                                        # Attendi 20 secondi per validare il download (barra di caricamento)
-                                        print(f"⏳ [get_entry] Attesa 20 secondi per validazione download...", file=sys.stderr)
-                                        import time
-                                        time.sleep(20)
-                                        
-                                        # Seconda richiesta: dopo 20 secondi, ottieni l'URL finale valido
-                                        link_response2 = session.get(link_url, headers=get_browser_headers(referer=download_page_url), timeout=15, allow_redirects=True)
-                                        link_response2.raise_for_status()
-                                        link_soup = BeautifulSoup(link_response2.content, 'html.parser')
+                                        link_soup = BeautifulSoup(link_response.content, 'html.parser')
                                         
                                         # Cerca il link di download finale
                                         download_link_elem = link_soup.find('a', id='download-link')
@@ -470,10 +461,11 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
                                                     parsed.fragment
                                                 ))
                                                 print(f"✅ [get_entry] URL finale estratto e codificato: {final_url[:100]}...", file=sys.stderr)
+                                                print(f"ℹ️ [get_entry] IMPORTANTE: Per i link diretti, attendere 20 secondi dal caricamento pagina prima di avviare il download", file=sys.stderr)
                                             else:
                                                 final_url = link_url
                                         else:
-                                            print(f"⚠️ [get_entry] Link download finale non trovato dopo 20s, uso URL intermedio", file=sys.stderr)
+                                            print(f"⚠️ [get_entry] Link download finale non trovato, uso URL intermedio", file=sys.stderr)
                                     except Exception as e:
                                         print(f"⚠️ [get_entry] Errore estrazione URL finale per {link_url}: {e}", file=sys.stderr)
                                         import traceback
@@ -496,7 +488,8 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
                                     "url": final_url,
                                     "size": None,
                                     "size_str": size_str,
-                                    "requires_webview": requires_webview
+                                    "requires_webview": requires_webview,
+                                    "delay_seconds": 20 if is_direct else None  # Per link diretti, attendere 20s prima del download
                                 })
                                 print(f"✅ [get_entry] Link aggiunto alla lista: {link_name}", file=sys.stderr)
                             except Exception as e:
