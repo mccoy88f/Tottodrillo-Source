@@ -316,100 +316,127 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
         download_links = []
         
         # Estrai download links solo se richiesto
-        if download_page_url and include_download_links:
+        if not include_download_links:
+            print(f"ℹ️ [get_entry] include_download_links=False, salto estrazione link", file=sys.stderr)
+        elif not download_page_url:
+            print(f"⚠️ [get_entry] download_page_url è None, non posso estrarre link", file=sys.stderr)
+        else:
+            print(f"🔗 [get_entry] Estrazione link download da: {download_page_url}", file=sys.stderr)
             
             # Visita la pagina di download
-            download_response = session.get(download_page_url, headers=get_browser_headers(referer=page_url), timeout=15)
-            download_response.raise_for_status()
-            download_soup = BeautifulSoup(download_response.content, 'html.parser')
+            try:
+                download_response = session.get(download_page_url, headers=get_browser_headers(referer=page_url), timeout=15)
+                download_response.raise_for_status()
+                download_soup = BeautifulSoup(download_response.content, 'html.parser')
+                print(f"✅ [get_entry] Pagina download caricata, dimensione: {len(download_response.content)} bytes", file=sys.stderr)
+            except Exception as e:
+                print(f"❌ [get_entry] Errore caricamento pagina download: {e}", file=sys.stderr)
+                import traceback
+                print(f"   Traceback: {traceback.format_exc()}", file=sys.stderr)
+                download_soup = None
             
-            # Trova tutte le tabelle di download
-            download_tables = download_soup.find_all('div', class_='table-download')
+            if download_soup:
+                # Trova tutte le tabelle di download
+                download_tables = download_soup.find_all('div', class_='table-download')
+                print(f"📊 [get_entry] Trovate {len(download_tables)} tabelle di download", file=sys.stderr)
             
-            for table_div in download_tables:
-                try:
-                    # Leggi il titolo della tabella per capire se è "Direct" o altro
-                    h3 = table_div.find('h3')
-                    table_title = h3.get_text(strip=True) if h3 else ""
-                    
-                    # Determina se richiede webview
-                    is_direct = "Direct" in table_title
-                    requires_webview = not is_direct
-                    
-                    # Trova la tabella
-                    table = table_div.find('table')
-                    if not table:
-                        continue
-                    
-                    tbody = table.find('tbody')
-                    if not tbody:
-                        continue
-                    
-                    rows = tbody.find_all('tr')
-                    for row in rows:
-                        try:
-                            cells = row.find_all('td')
-                            if len(cells) < 3:
-                                continue
-                            
-                            # Prima cella: link con nome file
-                            link_cell = cells[0]
-                            link_elem = link_cell.find('a')
-                            if not link_elem:
-                                continue
-                            
-                            link_url = link_elem.get('href', '')
-                            if not link_url.startswith('http'):
-                                link_url = f"https://nswpedia.com{link_url}"
-                            
-                            file_name = link_elem.get_text(strip=True)
-                            
-                            # Seconda cella: size
-                            size_str = cells[1].get_text(strip=True)
-                            
-                            # Terza cella: type
-                            format_type = cells[2].get_text(strip=True).upper()
-                            
-                            # Per i link diretti, estrai l'URL finale dalla pagina intermedia
-                            final_url = link_url
-                            if is_direct:
-                                try:
-                                    print(f"🔍 [get_entry] Estrazione URL finale da link diretto: {link_url}", file=sys.stderr)
-                                    link_response = session.get(link_url, headers=get_browser_headers(referer=download_page_url), timeout=10, allow_redirects=True)
-                                    link_response.raise_for_status()
-                                    link_soup = BeautifulSoup(link_response.content, 'html.parser')
-                                    
-                                    # Cerca il link di download finale
-                                    download_link_elem = link_soup.find('a', id='download-link')
-                                    if download_link_elem:
-                                        final_url = download_link_elem.get('href', '')
-                                        if final_url and final_url.startswith('http'):
-                                            print(f"✅ [get_entry] URL finale estratto: {final_url[:100]}...", file=sys.stderr)
-                                        else:
-                                            final_url = link_url
-                                    else:
-                                        print(f"⚠️ [get_entry] Link download finale non trovato, uso URL intermedio", file=sys.stderr)
-                                except Exception as e:
-                                    print(f"⚠️ [get_entry] Errore estrazione URL finale per {link_url}: {e}", file=sys.stderr)
-                                    final_url = link_url
-                            
-                            download_links.append({
-                                "name": file_name,
-                                "type": "ROM",
-                                "format": format_type or "unknown",
-                                "url": final_url,
-                                "size": None,
-                                "size_str": size_str,
-                                "requires_webview": requires_webview
-                            })
-                        except Exception as e:
-                            print(f"⚠️ [get_entry] Errore parsing riga tabella: {e}", file=sys.stderr)
+                for table_div in download_tables:
+                    try:
+                        # Leggi il titolo della tabella per capire se è "Direct" o altro
+                        h3 = table_div.find('h3')
+                        table_title = h3.get_text(strip=True) if h3 else ""
+                        print(f"📋 [get_entry] Processando tabella: {table_title}", file=sys.stderr)
+                        
+                        # Determina se richiede webview
+                        is_direct = "Direct" in table_title
+                        requires_webview = not is_direct
+                        
+                        # Trova la tabella
+                        table = table_div.find('table')
+                        if not table:
+                            print(f"⚠️ [get_entry] Tabella non trovata in div.table-download", file=sys.stderr)
                             continue
-                except Exception as e:
-                    print(f"⚠️ [get_entry] Errore parsing tabella download: {e}", file=sys.stderr)
-                    continue
-            
-            print(f"✅ [get_entry] Trovati {len(download_links)} link download", file=sys.stderr)
+                        
+                        tbody = table.find('tbody')
+                        if not tbody:
+                            print(f"⚠️ [get_entry] tbody non trovato nella tabella", file=sys.stderr)
+                            continue
+                        
+                        rows = tbody.find_all('tr')
+                        print(f"📝 [get_entry] Trovate {len(rows)} righe nella tabella '{table_title}'", file=sys.stderr)
+                        for row in rows:
+                            try:
+                                cells = row.find_all('td')
+                                if len(cells) < 3:
+                                    print(f"⚠️ [get_entry] Riga con meno di 3 celle, salto", file=sys.stderr)
+                                    continue
+                                
+                                # Prima cella: link con nome file
+                                link_cell = cells[0]
+                                link_elem = link_cell.find('a')
+                                if not link_elem:
+                                    print(f"⚠️ [get_entry] Link non trovato nella prima cella", file=sys.stderr)
+                                    continue
+                                
+                                link_url = link_elem.get('href', '')
+                                if not link_url.startswith('http'):
+                                    link_url = f"https://nswpedia.com{link_url}"
+                                
+                                file_name = link_elem.get_text(strip=True)
+                                
+                                # Seconda cella: size
+                                size_str = cells[1].get_text(strip=True)
+                                
+                                # Terza cella: type
+                                format_type = cells[2].get_text(strip=True).upper()
+                                
+                                print(f"📥 [get_entry] Link trovato: {file_name} ({format_type}, {size_str}, direct={is_direct})", file=sys.stderr)
+                                
+                                # Per i link diretti, estrai l'URL finale dalla pagina intermedia
+                                final_url = link_url
+                                if is_direct:
+                                    try:
+                                        print(f"🔍 [get_entry] Estrazione URL finale da link diretto: {link_url}", file=sys.stderr)
+                                        link_response = session.get(link_url, headers=get_browser_headers(referer=download_page_url), timeout=10, allow_redirects=True)
+                                        link_response.raise_for_status()
+                                        link_soup = BeautifulSoup(link_response.content, 'html.parser')
+                                        
+                                        # Cerca il link di download finale
+                                        download_link_elem = link_soup.find('a', id='download-link')
+                                        if download_link_elem:
+                                            final_url = download_link_elem.get('href', '')
+                                            if final_url and final_url.startswith('http'):
+                                                print(f"✅ [get_entry] URL finale estratto: {final_url[:100]}...", file=sys.stderr)
+                                            else:
+                                                final_url = link_url
+                                        else:
+                                            print(f"⚠️ [get_entry] Link download finale non trovato, uso URL intermedio", file=sys.stderr)
+                                    except Exception as e:
+                                        print(f"⚠️ [get_entry] Errore estrazione URL finale per {link_url}: {e}", file=sys.stderr)
+                                        final_url = link_url
+                                
+                                download_links.append({
+                                    "name": file_name,
+                                    "type": "ROM",
+                                    "format": format_type or "unknown",
+                                    "url": final_url,
+                                    "size": None,
+                                    "size_str": size_str,
+                                    "requires_webview": requires_webview
+                                })
+                                print(f"✅ [get_entry] Link aggiunto alla lista: {file_name}", file=sys.stderr)
+                            except Exception as e:
+                                print(f"⚠️ [get_entry] Errore parsing riga tabella: {e}", file=sys.stderr)
+                                import traceback
+                                print(f"   Traceback: {traceback.format_exc()}", file=sys.stderr)
+                                continue
+                    except Exception as e:
+                        print(f"⚠️ [get_entry] Errore parsing tabella download: {e}", file=sys.stderr)
+                        import traceback
+                        print(f"   Traceback: {traceback.format_exc()}", file=sys.stderr)
+                        continue
+                
+                print(f"✅ [get_entry] Trovati {len(download_links)} link download totali", file=sys.stderr)
         
         # Estrai regioni (non disponibili su NSWpedia)
         regions = []
