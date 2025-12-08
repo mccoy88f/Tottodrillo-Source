@@ -446,14 +446,14 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
                                     # Per i link diretti, usiamo l'URL della pagina intermedia
                                     # Il WebView completerà la challenge Cloudflare e intercetterà il download
                                 
-                                # Costruisci il nome del link: mostra "Diretto" o il nome del sito
+                                # Costruisci il nome del link: mostra "Diretto" o il nome del sito alla fine tra parentesi
                                 link_name = file_name
                                 if site_name:
-                                    # Se è diretto, mostra "Diretto - nome file", altrimenti "Sito - nome file"
+                                    # Se è diretto, mostra "nome file (Diretto)", altrimenti "nome file (NomeSito)"
                                     if is_direct:
-                                        link_name = f"Diretto - {file_name}"
+                                        link_name = f"{file_name} (Diretto)"
                                     else:
-                                        link_name = f"{site_name} - {file_name}"
+                                        link_name = f"{file_name} ({site_name})"
                                 
                                 download_links.append({
                                     "name": link_name,
