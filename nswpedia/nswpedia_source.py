@@ -366,9 +366,19 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
                         table_title = h3.get_text(strip=True) if h3 else ""
                         print(f"📋 [get_entry] Processando tabella: {table_title}", file=sys.stderr)
                         
-                        # Determina se richiede webview
+                        # Determina se richiede webview e estrai nome del sito
                         is_direct = "Direct" in table_title
                         requires_webview = not is_direct
+                        
+                        # Estrai nome del sito dal titolo (es: "Downloads List - 1Fichier" -> "1Fichier")
+                        site_name = None
+                        if not is_direct and "Downloads List -" in table_title:
+                            # Estrai il nome dopo "Downloads List -"
+                            parts = table_title.split("Downloads List -")
+                            if len(parts) > 1:
+                                site_name = parts[1].strip()
+                        elif is_direct:
+                            site_name = "Diretto"  # Sarà localizzato dall'app
                         
                         # Trova la tabella
                         table = table_div.find('table')
@@ -401,6 +411,18 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
                                 if not link_url.startswith('http'):
                                     link_url = f"https://nswpedia.com{link_url}"
                                 
+                                # Codifica correttamente l'URL (gestisce spazi e caratteri speciali)
+                                parsed = urllib.parse.urlparse(link_url)
+                                encoded_path = urllib.parse.quote(parsed.path, safe='/')
+                                link_url = urllib.parse.urlunparse((
+                                    parsed.scheme,
+                                    parsed.netloc,
+                                    encoded_path,
+                                    parsed.params,
+                                    parsed.query,
+                                    parsed.fragment
+                                ))
+                                
                                 file_name = link_elem.get_text(strip=True)
                                 
                                 # Seconda cella: size
@@ -412,30 +434,63 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
                                 print(f"📥 [get_entry] Link trovato: {file_name} ({format_type}, {size_str}, direct={is_direct})", file=sys.stderr)
                                 
                                 # Per i link diretti, estrai l'URL finale dalla pagina intermedia
+                                # IMPORTANTE: attendere 20 secondi dopo il caricamento per validare il download
                                 final_url = link_url
                                 if is_direct:
                                     try:
                                         print(f"🔍 [get_entry] Estrazione URL finale da link diretto: {link_url}", file=sys.stderr)
-                                        link_response = session.get(link_url, headers=get_browser_headers(referer=download_page_url), timeout=10, allow_redirects=True)
+                                        # Prima richiesta: carica la pagina
+                                        link_response = session.get(link_url, headers=get_browser_headers(referer=download_page_url), timeout=15, allow_redirects=True)
                                         link_response.raise_for_status()
-                                        link_soup = BeautifulSoup(link_response.content, 'html.parser')
+                                        
+                                        # Attendi 20 secondi per validare il download (barra di caricamento)
+                                        print(f"⏳ [get_entry] Attesa 20 secondi per validazione download...", file=sys.stderr)
+                                        import time
+                                        time.sleep(20)
+                                        
+                                        # Seconda richiesta: dopo 20 secondi, ottieni l'URL finale valido
+                                        link_response2 = session.get(link_url, headers=get_browser_headers(referer=download_page_url), timeout=15, allow_redirects=True)
+                                        link_response2.raise_for_status()
+                                        link_soup = BeautifulSoup(link_response2.content, 'html.parser')
                                         
                                         # Cerca il link di download finale
                                         download_link_elem = link_soup.find('a', id='download-link')
                                         if download_link_elem:
                                             final_url = download_link_elem.get('href', '')
                                             if final_url and final_url.startswith('http'):
-                                                print(f"✅ [get_entry] URL finale estratto: {final_url[:100]}...", file=sys.stderr)
+                                                # Codifica correttamente l'URL (gestisce spazi e caratteri speciali)
+                                                parsed = urllib.parse.urlparse(final_url)
+                                                encoded_path = urllib.parse.quote(parsed.path, safe='/')
+                                                final_url = urllib.parse.urlunparse((
+                                                    parsed.scheme,
+                                                    parsed.netloc,
+                                                    encoded_path,
+                                                    parsed.params,
+                                                    parsed.query,
+                                                    parsed.fragment
+                                                ))
+                                                print(f"✅ [get_entry] URL finale estratto e codificato: {final_url[:100]}...", file=sys.stderr)
                                             else:
                                                 final_url = link_url
                                         else:
-                                            print(f"⚠️ [get_entry] Link download finale non trovato, uso URL intermedio", file=sys.stderr)
+                                            print(f"⚠️ [get_entry] Link download finale non trovato dopo 20s, uso URL intermedio", file=sys.stderr)
                                     except Exception as e:
                                         print(f"⚠️ [get_entry] Errore estrazione URL finale per {link_url}: {e}", file=sys.stderr)
+                                        import traceback
+                                        print(f"   Traceback: {traceback.format_exc()}", file=sys.stderr)
                                         final_url = link_url
                                 
+                                # Costruisci il nome del link: mostra "Diretto" o il nome del sito
+                                link_name = file_name
+                                if site_name:
+                                    # Se è diretto, mostra "Diretto - nome file", altrimenti "Sito - nome file"
+                                    if is_direct:
+                                        link_name = f"Diretto - {file_name}"
+                                    else:
+                                        link_name = f"{site_name} - {file_name}"
+                                
                                 download_links.append({
-                                    "name": file_name,
+                                    "name": link_name,
                                     "type": "ROM",
                                     "format": format_type or "unknown",
                                     "url": final_url,
@@ -443,7 +498,7 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
                                     "size_str": size_str,
                                     "requires_webview": requires_webview
                                 })
-                                print(f"✅ [get_entry] Link aggiunto alla lista: {file_name}", file=sys.stderr)
+                                print(f"✅ [get_entry] Link aggiunto alla lista: {link_name}", file=sys.stderr)
                             except Exception as e:
                                 print(f"⚠️ [get_entry] Errore parsing riga tabella: {e}", file=sys.stderr)
                                 import traceback
