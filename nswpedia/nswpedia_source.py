@@ -436,7 +436,9 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
                                 # Per i link diretti, estrai l'URL finale dalla pagina intermedia
                                 # NOTA: L'URL può essere estratto subito, ma il download deve essere avviato
                                 # almeno 20 secondi dopo il caricamento della pagina per evitare errori 403
+                                # Passiamo anche l'URL della pagina intermedia per visitarla e ottenere i cookie
                                 final_url = link_url
+                                intermediate_url = link_url  # URL della pagina intermedia (per ottenere cookie)
                                 if is_direct:
                                     try:
                                         print(f"🔍 [get_entry] Estrazione URL finale da link diretto: {link_url}", file=sys.stderr)
@@ -461,7 +463,7 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
                                                     parsed.fragment
                                                 ))
                                                 print(f"✅ [get_entry] URL finale estratto e codificato: {final_url[:100]}...", file=sys.stderr)
-                                                print(f"ℹ️ [get_entry] IMPORTANTE: Per i link diretti, attendere 20 secondi dal caricamento pagina prima di avviare il download", file=sys.stderr)
+                                                print(f"ℹ️ [get_entry] IMPORTANTE: Per i link diretti, visitare pagina intermedia, attendere 20 secondi, poi scaricare", file=sys.stderr)
                                             else:
                                                 final_url = link_url
                                         else:
@@ -471,6 +473,8 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
                                         import traceback
                                         print(f"   Traceback: {traceback.format_exc()}", file=sys.stderr)
                                         final_url = link_url
+                                else:
+                                    intermediate_url = None
                                 
                                 # Costruisci il nome del link: mostra "Diretto" o il nome del sito
                                 link_name = file_name
@@ -489,7 +493,8 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
                                     "size": None,
                                     "size_str": size_str,
                                     "requires_webview": requires_webview,
-                                    "delay_seconds": 20 if is_direct else None  # Per link diretti, attendere 20s prima del download
+                                    "delay_seconds": 20 if is_direct else None,  # Per link diretti, attendere 20s prima del download
+                                    "intermediate_url": intermediate_url if is_direct else None  # URL pagina intermedia per ottenere cookie
                                 })
                                 print(f"✅ [get_entry] Link aggiunto alla lista: {link_name}", file=sys.stderr)
                             except Exception as e:
