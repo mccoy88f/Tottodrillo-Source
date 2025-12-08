@@ -209,11 +209,29 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
         
         soup = BeautifulSoup(response.content, 'html.parser')
         
-        # Estrai titolo (cerca h1 o title)
+        # Estrai titolo dal campo "App name" (stesso formato della ricerca)
         title = None
-        h1 = soup.find('h1')
-        if h1:
-            title = h1.get_text(strip=True)
+        
+        # Cerca il div info-block scora che contiene "App name"
+        info_blocks = soup.find_all('div', class_=lambda x: x and 'info-block' in str(x) and 'scora' in str(x))
+        for info_block in info_blocks:
+            spans = info_block.find_all('span', class_='body-2')
+            if len(spans) >= 2:
+                # Il primo span contiene la label, il secondo il valore
+                label_span = spans[0]
+                value_span = spans[1]
+                label_text = label_span.get_text(strip=True).lower()
+                if 'app name' in label_text:
+                    title = value_span.get_text(strip=True)
+                    print(f"✅ [get_entry] Titolo estratto da 'App name': {title}", file=sys.stderr)
+                    break
+        
+        # Fallback: cerca h1 o title se non trovato in "App name"
+        if not title:
+            h1 = soup.find('h1')
+            if h1:
+                title = h1.get_text(strip=True)
+                print(f"✅ [get_entry] Titolo estratto da h1: {title}", file=sys.stderr)
         
         if not title:
             title_tag = soup.find('title')
@@ -221,6 +239,7 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
                 title = title_tag.get_text(strip=True)
                 # Rimuovi suffissi comuni
                 title = re.sub(r'\s*-\s*NSWpedia.*$', '', title, flags=re.IGNORECASE)
+                print(f"✅ [get_entry] Titolo estratto da title tag: {title}", file=sys.stderr)
         
         if title:
             title = title.strip()
