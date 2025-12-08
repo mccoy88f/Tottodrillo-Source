@@ -433,48 +433,18 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
                                 
                                 print(f"📥 [get_entry] Link trovato: {file_name} ({format_type}, {size_str}, direct={is_direct})", file=sys.stderr)
                                 
-                                # Per i link diretti, estrai l'URL finale dalla pagina intermedia
-                                # NOTA: L'URL può essere estratto subito, ma il download deve essere avviato
-                                # almeno 20 secondi dopo il caricamento della pagina per evitare errori 403
-                                # Passiamo anche l'URL della pagina intermedia per visitarla e ottenere i cookie
+                                # Per i link diretti, NON estrarre l'URL finale
+                                # Cloudflare richiede una challenge JavaScript che richiede ~20 secondi
+                                # Il WebView deve aprire la pagina intermedia per completare la challenge e ottenere il cookie cf_clearance
+                                # Poi il WebView può intercettare il download quando parte
                                 final_url = link_url
-                                intermediate_url = link_url  # URL della pagina intermedia (per ottenere cookie)
+                                intermediate_url = link_url if is_direct else None  # URL della pagina intermedia per WebView
+                                
                                 if is_direct:
-                                    try:
-                                        print(f"🔍 [get_entry] Estrazione URL finale da link diretto: {link_url}", file=sys.stderr)
-                                        link_response = session.get(link_url, headers=get_browser_headers(referer=download_page_url), timeout=15, allow_redirects=True)
-                                        link_response.raise_for_status()
-                                        link_soup = BeautifulSoup(link_response.content, 'html.parser')
-                                        
-                                        # Cerca il link di download finale
-                                        download_link_elem = link_soup.find('a', id='download-link')
-                                        if download_link_elem:
-                                            final_url = download_link_elem.get('href', '')
-                                            if final_url and final_url.startswith('http'):
-                                                # Codifica correttamente l'URL (gestisce spazi e caratteri speciali)
-                                                parsed = urllib.parse.urlparse(final_url)
-                                                encoded_path = urllib.parse.quote(parsed.path, safe='/')
-                                                final_url = urllib.parse.urlunparse((
-                                                    parsed.scheme,
-                                                    parsed.netloc,
-                                                    encoded_path,
-                                                    parsed.params,
-                                                    parsed.query,
-                                                    parsed.fragment
-                                                ))
-                                                print(f"✅ [get_entry] URL finale estratto e codificato: {final_url[:100]}...", file=sys.stderr)
-                                                print(f"ℹ️ [get_entry] IMPORTANTE: Per i link diretti, visitare pagina intermedia, attendere 20 secondi, poi scaricare", file=sys.stderr)
-                                            else:
-                                                final_url = link_url
-                                        else:
-                                            print(f"⚠️ [get_entry] Link download finale non trovato, uso URL intermedio", file=sys.stderr)
-                                    except Exception as e:
-                                        print(f"⚠️ [get_entry] Errore estrazione URL finale per {link_url}: {e}", file=sys.stderr)
-                                        import traceback
-                                        print(f"   Traceback: {traceback.format_exc()}", file=sys.stderr)
-                                        final_url = link_url
-                                else:
-                                    intermediate_url = None
+                                    print(f"ℹ️ [get_entry] Link diretto: uso pagina intermedia per WebView (Cloudflare challenge)", file=sys.stderr)
+                                    print(f"   URL pagina intermedia: {link_url}", file=sys.stderr)
+                                    # Per i link diretti, usiamo l'URL della pagina intermedia
+                                    # Il WebView completerà la challenge Cloudflare e intercetterà il download
                                 
                                 # Costruisci il nome del link: mostra "Diretto" o il nome del sito
                                 link_name = file_name
@@ -489,12 +459,12 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
                                     "name": link_name,
                                     "type": "ROM",
                                     "format": format_type or "unknown",
-                                    "url": final_url,
+                                    "url": intermediate_url if is_direct else final_url,  # Per link diretti, usa pagina intermedia per WebView
                                     "size": None,
                                     "size_str": size_str,
-                                    "requires_webview": requires_webview,
-                                    "delay_seconds": 20 if is_direct else None,  # Per link diretti, attendere 20s prima del download
-                                    "intermediate_url": intermediate_url if is_direct else None  # URL pagina intermedia per ottenere cookie
+                                    "requires_webview": True if is_direct else requires_webview,  # Link diretti richiedono WebView per Cloudflare
+                                    "delay_seconds": None,  # Non più necessario, gestito dal WebView
+                                    "intermediate_url": None  # Non più necessario, url punta già alla pagina intermedia
                                 })
                                 print(f"✅ [get_entry] Link aggiunto alla lista: {link_name}", file=sys.stderr)
                             except Exception as e:
