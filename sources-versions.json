@@ -26,9 +26,9 @@
     },
     {
       "id": "nswpedia",
-      "version": "1.0.1",
+      "version": "1.1.0",
       "downloadUrl": "https://github.com/mccoy88f/Tottodrillo-Source/raw/main/nswpedia-source.zip",
-      "changelog": "Sorgente per scaricare ROM Nintendo Switch da NSWpedia.com",
+      "changelog": "Sorgente per scaricare ROM Nintendo Switch da NSWpedia.com - Migliorata gestione paginazione per homepage e ricerca",
       "minAppVersion": "1.1.0",
       "releaseDate": null
     }

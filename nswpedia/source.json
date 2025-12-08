@@ -1,7 +1,7 @@
 {
   "id": "nswpedia",
   "name": "NSWpedia",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "type": "python",
   "description": "Sorgente per scaricare ROM Nintendo Switch da NSWpedia.com",
   "author": "Tottodrillo Team",

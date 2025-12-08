@@ -121,31 +121,71 @@ def search_roms(params: Dict[str, Any], source_dir: str) -> str:
         
         # Estrai informazioni sulla paginazione
         total_pages = 1
+        next_page_url = None
         try:
-            # Cerca il blocco di paginazione (potrebbe essere in vari formati)
-            nav_links = soup.find('nav', class_=lambda x: x and 'pagination' in str(x).lower()) or soup.find('div', class_=lambda x: x and 'pagination' in str(x).lower())
-            if nav_links:
-                # Trova tutti i link di pagina
-                page_links = nav_links.find_all('a', href=re.compile(r'/page/\d+'))
+            # Cerca il blocco di paginazione (ul.pagination)
+            pagination_ul = soup.find('ul', class_=lambda x: x and 'pagination' in str(x).lower())
+            if pagination_ul:
+                # Trova tutti i link di pagina (sia numerici che "Next")
+                page_links = pagination_ul.find_all('a', href=True)
                 page_numbers = []
+                
                 for link in page_links:
                     href = link.get('href', '')
-                    match = re.search(r'/page/(\d+)/', href)
-                    if match:
-                        page_numbers.append(int(match.group(1)))
+                    if not href:
+                        continue
+                    
+                    # Gestisci i due formati diversi:
+                    # 1. Homepage: /nintendo-switch-roms/page/2
+                    # 2. Ricerca: /page/2/?s=query
+                    if search_key:
+                        # Formato ricerca: /page/\d+/?s=...
+                        match = re.search(r'/page/(\d+)/', href)
+                        if match:
+                            page_num = int(match.group(1))
+                            page_numbers.append(page_num)
+                    else:
+                        # Formato homepage: /nintendo-switch-roms/page/\d+
+                        match = re.search(r'/nintendo-switch-roms/page/(\d+)', href)
+                        if match:
+                            page_num = int(match.group(1))
+                            page_numbers.append(page_num)
+                    
+                    # Cerca anche il link "Next" o "Further"
+                    link_text = link.get_text(strip=True).lower()
+                    if ('next' in link_text or 'further' in link_text) and not next_page_url:
+                        # Assicurati che l'URL sia completo
+                        if href.startswith('http'):
+                            next_page_url = href
+                        else:
+                            next_page_url = f"https://nswpedia.com{href}"
                 
                 if page_numbers:
                     total_pages = max(page_numbers)
+                    
+                # Se non abbiamo trovato next_page_url ma ci sono più pagine, costruiscilo
+                if not next_page_url and total_pages > page:
+                    if search_key:
+                        next_page_url = f"https://nswpedia.com/page/{page + 1}/?s={urllib.parse.quote(search_key)}"
+                    else:
+                        next_page_url = f"https://nswpedia.com/nintendo-switch-roms/page/{page + 1}/"
         except Exception as e:
+            print(f"⚠️ [search_roms] Errore estrazione paginazione: {e}", file=sys.stderr)
             pass
         
-        return json.dumps({
+        result = {
             "roms": roms,
             "total_results": len(roms) * total_pages if total_pages > 1 else len(roms),  # Stima
             "current_results": len(roms),
             "current_page": page,
             "total_pages": total_pages
-        })
+        }
+        
+        # Aggiungi URL pagina successiva se disponibile
+        if next_page_url:
+            result["next_page_url"] = next_page_url
+        
+        return json.dumps(result)
         
     except Exception as e:
         import traceback
