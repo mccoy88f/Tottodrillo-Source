@@ -175,6 +175,7 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
             if slug.startswith("nintendo-switch-roms/"):
                 page_url = f"https://nswpedia.com/{slug}"
             else:
+                # Prova prima senza categoria
                 page_url = f"https://nswpedia.com/nintendo-switch-roms/{slug}"
         
         print(f"🔗 [get_entry] Recupero dettagli: {page_url}", file=sys.stderr)
@@ -182,8 +183,18 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
         # Fai la richiesta alla pagina ROM
         session = requests.Session()
         headers = get_browser_headers()
+        response = None
         try:
             response = session.get(page_url, headers=headers, timeout=15)
+            
+            # Se 404, prova con categoria "action" (categoria comune)
+            if response.status_code == 404 and not slug.startswith("http") and "/action/" not in page_url:
+                fallback_url = f"https://nswpedia.com/nintendo-switch-roms/action/{slug}"
+                print(f"🔄 [get_entry] 404, provo URL alternativo: {fallback_url}", file=sys.stderr)
+                response = session.get(fallback_url, headers=headers, timeout=15)
+                if response.status_code == 200:
+                    page_url = fallback_url
+                    print(f"✅ [get_entry] URL alternativo funziona: {page_url}", file=sys.stderr)
             
             if response.status_code == 404:
                 print(f"⚠️ [get_entry] Pagina non trovata (404) per: {page_url}", file=sys.stderr)
@@ -243,18 +254,48 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
                         screen_images.append(img_url)
         
         # Trova il pulsante Download
-        download_button = soup.find('a', class_=lambda x: x and 'btn' in str(x) and 'green' in str(x) and 'download' in str(x).lower())
+        # Prova diversi selettori per trovare il pulsante
+        download_button = None
         download_page_url = None
+        
+        # Metodo 1: cerca link con href che contiene "/download/" e class contiene "green"
+        download_button = soup.find('a', href=re.compile(r'/download/'), class_=lambda x: x and 'green' in str(x))
+        
+        # Metodo 2: cerca dentro div.btn-block
+        if not download_button:
+            btn_block = soup.find('div', class_='btn-block')
+            if btn_block:
+                download_button = btn_block.find('a', href=re.compile(r'/download/'))
+        
+        # Metodo 3: cerca link con testo "Download" e href contiene "/download/"
+        if not download_button:
+            all_links = soup.find_all('a', href=re.compile(r'/download/'))
+            for link in all_links:
+                link_text = link.get_text(strip=True).lower()
+                if 'download' in link_text:
+                    download_button = link
+                    break
+        
         if download_button:
             download_page_url = download_button.get('href', '')
             if download_page_url and not download_page_url.startswith('http'):
                 download_page_url = f"https://nswpedia.com{download_page_url}"
+            print(f"✅ [get_entry] Pulsante Download trovato: {download_page_url}", file=sys.stderr)
+        else:
+            # Debug: cerca tutti i link con /download/ per capire cosa c'è nella pagina
+            all_download_links = soup.find_all('a', href=re.compile(r'/download/'))
+            print(f"⚠️ [get_entry] Pulsante Download non trovato. Trovati {len(all_download_links)} link con '/download/' nella pagina", file=sys.stderr)
+            if all_download_links:
+                for i, link in enumerate(all_download_links[:3]):  # Primi 3 per debug
+                    href = link.get('href', '')
+                    classes = link.get('class', [])
+                    text = link.get_text(strip=True)
+                    print(f"  Link {i+1}: href={href[:80]}, class={classes}, text='{text[:50]}'", file=sys.stderr)
         
         download_links = []
         
         # Estrai download links solo se richiesto
         if download_page_url and include_download_links:
-            print(f"✅ [get_entry] Pulsante Download trovato: {download_page_url}", file=sys.stderr)
             
             # Visita la pagina di download
             download_response = session.get(download_page_url, headers=get_browser_headers(referer=page_url), timeout=15)
