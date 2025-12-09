@@ -337,15 +337,70 @@ def get_entry(params: Dict[str, Any], source_dir: str) -> str:
         else:
             
             # Visita la pagina di download
-            try:
-                download_response = session.get(download_page_url, headers=get_browser_headers(referer=page_url), timeout=15)
-                download_response.raise_for_status()
-                download_soup = BeautifulSoup(download_response.content, 'html.parser')
-            except Exception as e:
-                print(f"❌ [get_entry] Errore caricamento pagina download: {e}", file=sys.stderr)
-                import traceback
-                print(f"   Traceback: {traceback.format_exc()}", file=sys.stderr)
-                download_soup = None
+            # Gestisce il caso in cui la pagina fa redirect a un popup fuori dal dominio nswpedia.com
+            download_soup = None
+            max_retries = 3
+            retry_count = 0
+            
+            while retry_count < max_retries and download_soup is None:
+                try:
+                    download_response = session.get(download_page_url, headers=get_browser_headers(referer=page_url), timeout=15, allow_redirects=True)
+                    download_response.raise_for_status()
+                    
+                    # Controlla se l'URL finale è fuori dal dominio nswpedia.com (popup)
+                    final_url = download_response.url
+                    parsed_final = urllib.parse.urlparse(final_url)
+                    parsed_original = urllib.parse.urlparse(download_page_url)
+                    
+                    # Se l'URL finale è su un dominio diverso da nswpedia.com, è un popup
+                    if parsed_final.netloc != parsed_original.netloc and 'nswpedia.com' not in parsed_final.netloc:
+                        print(f"⚠️ [get_entry] Rilevato popup fuori dal dominio: {final_url}", file=sys.stderr)
+                        print(f"   URL originale: {download_page_url}", file=sys.stderr)
+                        retry_count += 1
+                        if retry_count < max_retries:
+                            print(f"   Riprovo (tentativo {retry_count + 1}/{max_retries})...", file=sys.stderr)
+                            # Attendi un po' prima di riprovare
+                            import time
+                            time.sleep(1)
+                            continue
+                        else:
+                            print(f"   ⚠️ Massimo numero di tentativi raggiunto, salto questa pagina", file=sys.stderr)
+                            break
+                    
+                    # Se siamo ancora su nswpedia.com, verifica che la pagina contenga le tabelle di download
+                    download_soup = BeautifulSoup(download_response.content, 'html.parser')
+                    download_tables_check = download_soup.find_all('div', class_='table-download')
+                    
+                    # Se non ci sono tabelle di download, potrebbe essere una pagina popup o errore
+                    if not download_tables_check:
+                        print(f"⚠️ [get_entry] Pagina caricata ma nessuna tabella download trovata: {final_url}", file=sys.stderr)
+                        retry_count += 1
+                        if retry_count < max_retries:
+                            print(f"   Riprovo (tentativo {retry_count + 1}/{max_retries})...", file=sys.stderr)
+                            import time
+                            time.sleep(1)
+                            download_soup = None
+                            continue
+                        else:
+                            print(f"   ⚠️ Massimo numero di tentativi raggiunto, salto questa pagina", file=sys.stderr)
+                            download_soup = None
+                            break
+                    
+                    print(f"✅ [get_entry] Pagina download caricata correttamente: {final_url} ({len(download_tables_check)} tabelle trovate)", file=sys.stderr)
+                    break
+                    
+                except Exception as e:
+                    print(f"❌ [get_entry] Errore caricamento pagina download: {e}", file=sys.stderr)
+                    import traceback
+                    print(f"   Traceback: {traceback.format_exc()}", file=sys.stderr)
+                    retry_count += 1
+                    if retry_count < max_retries:
+                        import time
+                        time.sleep(1)
+                        continue
+                    else:
+                        download_soup = None
+                        break
             
             if download_soup:
                 # Trova tutte le tabelle di download
