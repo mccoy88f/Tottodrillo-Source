@@ -1,0 +1,37 @@
+{
+  "sources": [
+    {
+      "id": "crocdb",
+      "version": "3.0.0",
+      "downloadUrl": "https://github.com/mccoy88f/Tottodrillo-Source/raw/main/crocdb-source.zip",
+      "changelog": "Sorgente ufficiale CrocDB - Database pubblico di ROM per retro gaming",
+      "minAppVersion": "3.0.0",
+      "releaseDate": null
+    },
+    {
+      "id": "switchroms",
+      "version": "3.0.0",
+      "downloadUrl": "https://github.com/mccoy88f/Tottodrillo-Source/raw/main/switchroms-source.zip",
+      "changelog": "Sorgente per scaricare ROM Nintendo Switch da SwitchRoms.io",
+      "minAppVersion": "3.0.0",
+      "releaseDate": null
+    },
+    {
+      "id": "vimms",
+      "version": "3.0.0",
+      "downloadUrl": "https://github.com/mccoy88f/Tottodrillo-Source/raw/main/vimms-source.zip",
+      "changelog": "Sorgente per scaricare ROM da Vimm's Lair - Database pubblico di ROM per retro gaming",
+      "minAppVersion": "3.0.0",
+      "releaseDate": null
+    },
+    {
+      "id": "nswpedia",
+      "version": "3.0.0",
+      "downloadUrl": "https://github.com/mccoy88f/Tottodrillo-Source/raw/main/nswpedia-source.zip",
+      "changelog": "Fix: delay_seconds ora specificato dalla source (20s per link diretti) invece che hardcoded nell'app",
+      "minAppVersion": "3.0.0",
+      "releaseDate": null
+    }
+  ]
+}
+
